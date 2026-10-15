@@ -16,6 +16,7 @@
 	var/light_impact_cap = 4
 	var/block_chem_smoke = FALSE
 	var/block_foam = FALSE
+	var/block_combustible_flood = FALSE
 
 /datum/controller/subsystem/explosions/Initialize()
 	load_raider_controller_settings()
@@ -35,6 +36,7 @@
 	light_impact_cap = settings["light_impact_cap"]
 	block_chem_smoke = settings["block_chem_smoke"] || FALSE
 	block_foam = settings["block_foam"] || FALSE
+	block_combustible_flood = settings["block_combustible_flood"] || FALSE
 
 /datum/controller/subsystem/explosions/proc/save_raider_controller_settings()
 	if(isnull(raider_controller_database))
@@ -47,6 +49,7 @@
 		"light_impact_cap" = light_impact_cap,
 		"block_chem_smoke" = block_chem_smoke,
 		"block_foam" = block_foam,
+		"block_combustible_flood" = block_combustible_flood,
 	))
 
 ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti-raider system", ADMIN_CATEGORY_DEBUG)
@@ -72,6 +75,7 @@ ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti
 		"light_impact_cap" = light_impact_cap,
 		"block_chem_smoke" = block_chem_smoke,
 		"block_foam" = block_foam,
+		"block_combustible_flood" = block_combustible_flood,
 	)
 
 /datum/controller/subsystem/explosions/ui_act(action, list/params, datum/tgui/ui, datum/ui_state/state)
@@ -90,6 +94,8 @@ ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti
 			block_chem_smoke = !block_chem_smoke
 		if("toggle_foam")
 			block_foam = !block_foam
+		if("toggle_combustible_flood")
+			block_combustible_flood = !block_combustible_flood
 		if("set_time_limit")
 			var/time_limit_hours = params["hours"]
 			minimum_bomber_alive_time = time_limit_hours
@@ -109,19 +115,18 @@ ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti
 	save_raider_controller_settings()
 	return TRUE
 
-/datum/controller/subsystem/explosions/proc/get_raider_controller_client(atom/source)
-	var/mob/user_mob = usr
+/datum/controller/subsystem/explosions/proc/get_raider_controller_client(atom/source, mob/user_mob = usr)
 	if(ismob(user_mob) && user_mob.client)
 		return user_mob.client
 	if(source?.fingerprintslast)
 		return GLOB.directory[source.fingerprintslast]
 	return null
 
-/datum/controller/subsystem/explosions/proc/should_block_raider_chemical_effect(atom/source, effect_name)
-	var/client/who_did_it = get_raider_controller_client(source)
+/datum/controller/subsystem/explosions/proc/try_block_raider_effect(atom/source, effect_name, mob/user = usr)
+	var/client/who_did_it = get_raider_controller_client(source, user)
 	if(!who_did_it || (who_did_it.get_exp_living(pure_numeric = TRUE) / 60) >= minimum_bomber_alive_time)
 		return FALSE
-	var/block_message = "Время [ADMIN_LOOKUPFLW(who_did_it.mob)] ([who_did_it.get_exp_living()]) ниже предела. [effect_name]: эффект отменён."
+	var/block_message = "Время [ADMIN_LOOKUPFLW(who_did_it.mob)] ([who_did_it.get_exp_living()]) ниже предела.эффект [effect_name] отменён."
 	message_admins(block_message)
 	log_game(block_message)
 	return TRUE
@@ -129,14 +134,21 @@ ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti
 // MARK: Chemical smoke
 
 /datum/effect_system/fluid_spread/smoke/chem/start(log = FALSE)
-	if(SSexplosions.block_chem_smoke && SSexplosions.should_block_raider_chemical_effect(holder || location, "Дым"))
+	if(SSexplosions.block_chem_smoke && SSexplosions.try_block_raider_effect(holder || location, "Дым"))
 		return
 	return ..()
 
 // MARK: Foam
 
 /datum/effect_system/fluid_spread/foam/start(log = FALSE, lifetime, slippery)
-	if(SSexplosions.block_foam && SSexplosions.should_block_raider_chemical_effect(holder || location, "Пена"))
+	if(SSexplosions.block_foam && SSexplosions.try_block_raider_effect(holder || location, "Пена"))
+		return
+	return ..()
+
+// MARK: Combustible gas flooding
+
+/datum/component/combustible_flooder/flood(mob/user, trigger_temperature)
+	if(SSexplosions.block_combustible_flood && SSexplosions.try_block_raider_effect(parent, "Выброс газа", user))
 		return
 	return ..()
 

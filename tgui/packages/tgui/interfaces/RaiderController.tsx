@@ -18,13 +18,14 @@ type RaiderControllerData = {
   light_impact_cap: number;
   block_chem_smoke: boolean;
   block_foam: boolean;
+  block_combustible_flood: boolean;
 };
 
 export function RaiderController() {
   const { act, data } = useBackend<RaiderControllerData>();
 
   return (
-    <Window width={480} height={350}>
+    <Window width={480} height={380}>
       <Window.Content scrollable>
         <Section fill>
           <LabeledList>
@@ -101,6 +102,15 @@ export function RaiderController() {
                 onClick={() => act('toggle_foam')}
               >
                 {data.block_foam ? 'Вкл' : 'Выкл'}
+              </Button>
+            </LabeledList.Item>
+            <LabeledList.Item label="Запрет возгонки">
+              <Button
+                icon={data.block_combustible_flood ? 'power-off' : 'times'}
+                selected={data.block_combustible_flood}
+                onClick={() => act('toggle_combustible_flood')}
+              >
+                {data.block_combustible_flood ? 'Вкл' : 'Выкл'}
               </Button>
             </LabeledList.Item>
           </LabeledList>
