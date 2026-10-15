@@ -7,6 +7,8 @@
 // MARK: Controller
 
 /datum/controller/subsystem/explosions
+	ss_flags = SS_TICKER
+	var/static/datum/json_database/raider_controller_database
 	var/raider_controller_state = RC_STATE_DISABLED
 	var/minimum_bomber_alive_time = DEFAULT_MIN_BOMBER_ALIVE_TIME
 	var/devastation_cap = 0
@@ -14,6 +16,38 @@
 	var/light_impact_cap = 4
 	var/block_chem_smoke = FALSE
 	var/block_foam = FALSE
+
+/datum/controller/subsystem/explosions/Initialize()
+	load_raider_controller_settings()
+	return SS_INIT_SUCCESS
+
+/datum/controller/subsystem/explosions/proc/load_raider_controller_settings()
+	if(isnull(raider_controller_database))
+		raider_controller_database = new("data/raider_controller.json")
+	var/list/settings = raider_controller_database.get()
+	if(!length(settings))
+		return
+
+	raider_controller_state = settings["state"] || RC_STATE_DISABLED
+	minimum_bomber_alive_time = settings["time_limit_hours"]
+	devastation_cap = settings["devastation_cap"]
+	heavy_impact_cap = settings["heavy_impact_cap"]
+	light_impact_cap = settings["light_impact_cap"]
+	block_chem_smoke = settings["block_chem_smoke"] || FALSE
+	block_foam = settings["block_foam"] || FALSE
+
+/datum/controller/subsystem/explosions/proc/save_raider_controller_settings()
+	if(isnull(raider_controller_database))
+		raider_controller_database = new("data/raider_controller.json")
+	raider_controller_database.replace(list(
+		"state" = raider_controller_state,
+		"time_limit_hours" = minimum_bomber_alive_time,
+		"devastation_cap" = devastation_cap,
+		"heavy_impact_cap" = heavy_impact_cap,
+		"light_impact_cap" = light_impact_cap,
+		"block_chem_smoke" = block_chem_smoke,
+		"block_foam" = block_foam,
+	))
 
 ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti-raider system", ADMIN_CATEGORY_DEBUG)
 	SSexplosions.ui_interact(user.mob)
@@ -72,6 +106,7 @@ ADMIN_VERB(manage_raider_controller, R_ADMIN, "Raider Controller", "Manages anti
 					return
 		else
 			return
+	save_raider_controller_settings()
 	return TRUE
 
 /datum/controller/subsystem/explosions/proc/get_raider_controller_client(atom/source)
